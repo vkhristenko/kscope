@@ -1,12 +1,15 @@
 #ifndef ast_h
 #define ast_h
 
+#include "llvm/IR/Value.h"
+
 #include <string>
 #include <vector>
 
 class ExprAST {
 public:
     virtual ~ExprAST() {}
+    virtual llvm::Value *codegen() = 0;
 };
 
 // expression class for numeric literals like 1.0
@@ -15,6 +18,7 @@ class NumberExprAST : public ExprAST {
 
 public:
     NumberExprAST(double Val) : Val(Val) {}
+    virtual Value *codegen();
 };
 
 class VariableExprAST : public ExprAST {
@@ -22,6 +26,7 @@ class VariableExprAST : public ExprAST {
 
 public:
     VariableExprAST(std::string const& Name) : Name(Name) {}
+    virtual Value *codegen();
 };
 
 class BinaryExprAST : public ExprAST {
@@ -32,6 +37,8 @@ public:
     BinaryExprAST(char op, std::unique_ptr<ExprAST> LHS,
                   std::unique_ptr<ExprAST> RHS)
         : Op(op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
+
+    virtual Value *codegen();
 };
 
 class CallExprAST : public ExprAST {
@@ -42,6 +49,8 @@ public:
                 std::vector<std::unique_ptr<ExprAST>> Args) 
         : Callee(Callee), Args(std::move(Args)) 
     {}
+
+    virtual Value *codegen();
 };
 
 // this class represents the prototype for a function
