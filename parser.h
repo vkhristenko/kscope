@@ -5,6 +5,12 @@
 #include <vector>
 #include <map>
 
+#include "ast.h"
+#include "lexer.h"
+
+// function declarations
+static std::unique_ptr<ExprAST> ParseExpression();
+
 //
 // provide a simple token buffer
 // CurTok is the current token the parser is looking at. getNexToken reads
@@ -34,7 +40,7 @@ static std::unique_ptr<ExprAST> ParseNumberExpr() {
 }
 
 // parenexpr ::= '(' expression ')'
-static stsd::unique_ptr<ExprAST> ParseParenAST() {
+static std::unique_ptr<ExprAST> ParseParenAST() {
     getNextToken(); // eat (
     auto V = ParseExpression();
     if (!V)
@@ -54,7 +60,7 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr() {
 
     getNextToken(); // eat identifier
     if (CurTok != '(')
-        retunr std::make_unique<VariableExprAST>(IdName);
+        return std::make_unique<VariableExprAST>(IdName);
 
     // Call
     getNextToken(); // eat (
@@ -79,7 +85,7 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr() {
     }
 
     getNextToken();
-    return std::make_unique<>CallExprAST(IdName, std::move(Args));
+    return std::make_unique<CallExprAST>(IdName, std::move(Args));
 }
 
 // primary
@@ -95,7 +101,7 @@ static std::unique_ptr<ExprAST> ParsePrimary() {
     case tok_number:
         return ParseNumberExpr();
     case '(':
-        return ParseParenExpr();
+        return ParseParenAST();
     }
 }
 
@@ -136,7 +142,7 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
         // the pending operator take RHS  as its LHS.
         int NextPrec = GetTokPrecedence();
         if (TokPrec < NextPrec) {
-            RHS = PrseBinOpRHS(TokPrec+1, std::move(RHS));
+            RHS = ParseBinOpRHS(TokPrec+1, std::move(RHS));
             if (!RHS)
                 return nullptr;
         }
@@ -168,6 +174,7 @@ static std::unique_ptr<PrototypeAST> ParsePrototype() {
     std::string FnName = IdentifierStr;
     getNextToken();
 
+    std::cout << FnName.c_str() << std::endl;
     if (CurTok != '(')
         return LogErrorP("Expected '(' in prototype");
 
@@ -184,7 +191,7 @@ static std::unique_ptr<PrototypeAST> ParsePrototype() {
 }
 
 // definition ::= 'def' prototype expression
-static std::unique_ptr<FunctionAST> ParseDefinion() {
+static std::unique_ptr<FunctionAST> ParseDefinition() {
     getNextToken();
     auto Proto = ParsePrototype();
     if (!Proto) return nullptr;
@@ -205,11 +212,58 @@ static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
     if (auto E = ParseExpression()) {
         // make an anonymous proto
         auto Proto = std::make_unique<PrototypeAST>("", std::vector<std::string>());
-        return std::make_unique<FunctionAST>(std::move(Proto), std;:move(E));
+        return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
     }
 
     return nullptr;
 }
-static 
+
+static void HandleDefinition() {
+    if (ParseDefinition()) {
+        fprintf(stderr, "parsed a function definitino.\n");
+    } else {
+        // skip token for error recovery
+        getNextToken();
+    }
+}
+
+static void HandleExtern() {
+    if (ParseExtern()) {
+        fprintf(stderr, "parsed an extern\n");
+    } else {
+        // skip token for error recovery
+        getNextToken();
+    }
+}
+
+static void HandleTopLevelExpression() {
+    if (ParseTopLevelExpr()) {
+        fprintf(stderr, "parsed a top-level expr\n");
+    } else {
+        // skip token for error recovery
+        getNextToken();
+    }
+}
+
+static  void MainLoop() {
+    while (1) {
+        switch (CurTok) {
+        case tok_eof:
+            return;
+        case ';':
+            getNextToken();
+            break;
+        case tok_def:
+            HandleDefinition();
+            break;
+        case tok_extern:
+            HandleExtern();
+            break;
+        default:
+            HandleTopLevelExpression();
+            break;
+        }
+    }
+}
 
 #endif // parser_h

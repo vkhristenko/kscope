@@ -64,7 +64,7 @@ static int gettok() {
 
     int ThisChar = LastChar;
     LastChar = getchar();
-    return LastChar;
+    return ThisChar;
 }
 
 #endif // lexer_h

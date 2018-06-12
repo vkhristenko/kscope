@@ -52,7 +52,7 @@ class PrototypeAST {
     std::vector<std::string> Args;
 
 public:
-    Prototype(std::string const& name, std::vector<std::string> Args)
+    PrototypeAST(std::string const& name, std::vector<std::string> Args)
         : Name(name), Args(std::move(Args)) {}
 
     std::string const& getName() const { return Name;}

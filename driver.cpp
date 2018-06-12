@@ -1,12 +1,19 @@
 #include <iostream>
 
-#include "lexer.h"
+#include "parser.h"
 
 int main(int argc, char **argv) {
-    int tok;
-    while ((tok = gettok()) != tok_eof) {
-        std::cout << "tok = " << tok << std::endl;
-    }
+    // 
+    // install binary ops precedence
+    //
+    BinopPrecedence['<'] = 10;
+    BinopPrecedence['+'] = 20;
+    BinopPrecedence['-'] = 30;
+    BinopPrecedence['*'] = 40;
+
+    fprintf(stderr, "ready> ");
+    getNextToken();
+    MainLoop();
 
     return 0;
 }
