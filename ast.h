@@ -2,6 +2,7 @@
 #define ast_h
 
 #include "llvm/IR/Value.h"
+#include "llvm/IR/Function.h"
 
 #include <string>
 #include <vector>
@@ -18,7 +19,7 @@ class NumberExprAST : public ExprAST {
 
 public:
     NumberExprAST(double Val) : Val(Val) {}
-    virtual Value *codegen();
+    virtual llvm::Value *codegen();
 };
 
 class VariableExprAST : public ExprAST {
@@ -26,7 +27,7 @@ class VariableExprAST : public ExprAST {
 
 public:
     VariableExprAST(std::string const& Name) : Name(Name) {}
-    virtual Value *codegen();
+    virtual llvm::Value *codegen();
 };
 
 class BinaryExprAST : public ExprAST {
@@ -38,7 +39,7 @@ public:
                   std::unique_ptr<ExprAST> RHS)
         : Op(op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
 
-    virtual Value *codegen();
+    virtual llvm::Value *codegen();
 };
 
 class CallExprAST : public ExprAST {
@@ -50,7 +51,7 @@ public:
         : Callee(Callee), Args(std::move(Args)) 
     {}
 
-    virtual Value *codegen();
+    virtual llvm::Value *codegen();
 };
 
 // this class represents the prototype for a function
@@ -65,6 +66,7 @@ public:
         : Name(name), Args(std::move(Args)) {}
 
     std::string const& getName() const { return Name;}
+    llvm::Function *codegen();
 };
 
 // this class represents a function definition itself
@@ -76,6 +78,8 @@ public:
     FunctionAST(std::unique_ptr<PrototypeAST> Proto,
                 std::unique_ptr<ExprAST> Body) 
         : Proto(std::move(Proto)), Body(std::move(Body)) {}
+
+    llvm::Function *codegen();
 };
 
 #endif // ast_h
