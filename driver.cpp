@@ -14,7 +14,15 @@ int main(int argc, char **argv) {
 
     fprintf(stderr, "ready> ");
     getNextToken();
+
+    // make the module, which holds all the code
+    TheModule = std::make_unique<llvm::Module>("my cool jit", TheContext);
+
+    // run the main interpreter
     MainLoop();
+
+    // dump the codegen stuff
+    TheModule->print(llvm::errs(), nullptr);
 
     return 0;
 }

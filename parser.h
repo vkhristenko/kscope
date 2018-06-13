@@ -5,6 +5,8 @@
 #include <vector>
 #include <map>
 
+#include "llvm/IR/Verifier.h"
+
 #include "ast.h"
 #include "lexer.h"
 
@@ -219,8 +221,12 @@ static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
 }
 
 static void HandleDefinition() {
-    if (ParseDefinition()) {
-        fprintf(stderr, "parsed a function definitino.\n");
+    if (auto FnAST = ParseDefinition()) {
+        if (auto *FnIR = FnAST->codegen()) {
+            fprintf(stderr, "Read function definition:");
+            FnIR->print(llvm::errs());
+            fprintf(stderr, "\n");
+        }
     } else {
         // skip token for error recovery
         getNextToken();
@@ -228,8 +234,12 @@ static void HandleDefinition() {
 }
 
 static void HandleExtern() {
-    if (ParseExtern()) {
-        fprintf(stderr, "parsed an extern\n");
+    if (auto ProtoAST = ParseExtern()) {
+        if (auto *FnIR = ProtoAST->codegen()) {
+            fprintf(stderr, "read extern: ");
+            FnIR->print(llvm::errs());
+            fprintf(stderr, "\n");
+        }
     } else {
         // skip token for error recovery
         getNextToken();
@@ -237,16 +247,22 @@ static void HandleExtern() {
 }
 
 static void HandleTopLevelExpression() {
-    if (ParseTopLevelExpr()) {
-        fprintf(stderr, "parsed a top-level expr\n");
+    if (auto FnAST = ParseTopLevelExpr()) {
+        if (auto *FnIR = FnAST->codegen()) {
+            fprintf(stderr, "read top-level expresssion: ");
+            FnIR->print(llvm::errs());
+            fprintf(stderr, "\n");
+        }
     } else {
         // skip token for error recovery
         getNextToken();
     }
 }
 
+// top ::= definition | external | expression | ';'
 static  void MainLoop() {
     while (1) {
+        fprintf(stderr, "ready> ");
         switch (CurTok) {
         case tok_eof:
             return;
