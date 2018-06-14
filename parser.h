@@ -249,9 +249,26 @@ static void HandleExtern() {
 static void HandleTopLevelExpression() {
     if (auto FnAST = ParseTopLevelExpr()) {
         if (auto *FnIR = FnAST->codegen()) {
+            /*
             fprintf(stderr, "read top-level expresssion: ");
             FnIR->print(llvm::errs());
             fprintf(stderr, "\n");
+            */
+
+            // jit the module containing the anonymous expr, 
+            // keeping a handle to free it later
+            auto H = TheJIT->addModule(std::move(TheModule));
+            InitializeModuleAndPassManager();
+
+            // search the jit for __anon_expr symbol
+            auto ExprSymbol = TheJIT->findSymbol("__anon_expr");
+            assert(ExprSymbol && "function not found");
+
+            // get the symbol's address and cast it to the right type
+            double (*FP)() = (double (*)())(intptr_t)ExprSymbol.getAddress();
+            fprintf(stderr, "evaluated to %f\n", FP());
+
+            TheJIT->removeModule(H);
         }
     } else {
         // skip token for error recovery

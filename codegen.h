@@ -1,6 +1,7 @@
 #ifndef codegen_h
 #define codegen_h
 
+#include "Kaleidoscope/include/Kaleidoscope.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/BasicBlock.h"
@@ -19,6 +20,8 @@ static llvm::LLVMContext TheContext;
 static llvm::IRBuilder<> Builder(TheContext);
 static std::unique_ptr<llvm::Module> TheModule;
 static std::map<std::string, llvm::Value*> NamedValues;
+static std::unique_ptr<llvm::FunctionPassManager> TheFPM;
+static std::unique_ptr<KaleidoscopeJIT> TheJIT;
 
 llvm::Value *LogErrorV(char const* Str) {
     LogError(Str);
@@ -129,12 +132,45 @@ llvm::Function *FunctionAST::codegen() {
         // validate the generated code ,checking for consistency
         llvm::verifyFunction(*TheFunction);
 
+        // run the optimization passes
+        TheFPM->run(*TheFunctions);
+
         return TheFunction;
     }
 
     // error reading body remove function
     TheFunction->eraseFromParent();
     return nullptr;
+}
+
+llvm::Function *getFunction(std::string Name) {
+    if (auto *F = TheModule)
+}
+
+//
+// optimization passes
+//
+void InitializeModuleAndPassManager(void) {
+    // open a new module
+    TheModule = std::make_unique<llvm::Module>("my cool jit", TheContext);
+    TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
+
+    // create a new pass manager attached to it
+    TheFPM = std::make_unique<llvm::FunctionPassManager>(TheModule.get());
+
+    // simple "peephole" optimizations and bit-twiddling opts
+    TheFPM->add(creatInstructionCombiningPass());
+
+    // reassociate exprs
+    TheFPM->add(createReassociatePass());
+
+    // eliminate common sub exprs
+    TheFPM->add(createGVNPass());
+
+    // simplify control flow graph (deleting unreachable blocks)
+    TheFPM->add(createCFGSimplificationPass());
+
+    TheFPM->doInitialization();
 }
 
 #endif // codegen_h
