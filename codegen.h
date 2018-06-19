@@ -1,7 +1,7 @@
 #ifndef codegen_h
 #define codegen_h
 
-#include "Kaleidoscope/include/Kaleidoscope.h"
+#include "Kaleidoscope/include/KaleidoscopeJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/BasicBlock.h"
@@ -22,6 +22,7 @@ static std::unique_ptr<llvm::Module> TheModule;
 static std::map<std::string, llvm::Value*> NamedValues;
 static std::unique_ptr<llvm::FunctionPassManager> TheFPM;
 static std::unique_ptr<KaleidoscopeJIT> TheJIT;
+static std::map<std::string, std::unique_ptr<llvm::PrototypeAST>> FunctionProtos;
 
 llvm::Value *LogErrorV(char const* Str) {
     LogError(Str);
@@ -63,9 +64,24 @@ llvm::Value *BinaryExprAST::codegen() {
     }
 }
 
+llvm::Function *getFunction(std::string Name) {
+    // first, see if the function has already been added to the current module
+    if (auto *F = TheModule->getFunction(Name))
+        return F;
+
+    // if not, check whether we can codegen the decl from some existing proto
+    auto FI = FunctionProtos.find(Name);
+    if (FI != FunctionProtos.end())
+        return FI->second->codegen();
+
+    // if no existing proto exists, return null
+    return nullptr;
+}
+
 llvm::Value *CallExprAST::codegen() {
     // look up the name in the global module table
-    llvm::Function *CalleeF = TheModule->getFunction(Callee);
+    llvm::Function *CalleeF = getFunction(Callee);
+//    llvm::Function *CalleeF = TheModule->getFunction(Callee);
     if (!CalleeF)
         return LogErrorV("unknown function referenced");
 
@@ -105,10 +121,14 @@ llvm::Function *PrototypeAST::codegen() {
 
 llvm::Function *FunctionAST::codegen() {
     // first, check for an existing function from a previous 'extern' declaration
-    llvm::Function *TheFunction = TheModule->getFunction(Proto->getName());
+//    llvm::Function *TheFunction = TheModule->getFunction(Proto->getName());
 
-    if (!TheFunction)
-        TheFunction = Proto->codegen();
+    auto &P = *Proto;
+    FunctionProtos[Proto->getName()] = std::move(Proto);
+    llvm::Function *TheFunction = getFunction(P.getName());
+
+//    if (!TheFunction)
+//        TheFunction = Proto->codegen();
 
     if (!TheFunction)
         return nullptr;
@@ -143,10 +163,6 @@ llvm::Function *FunctionAST::codegen() {
     return nullptr;
 }
 
-llvm::Function *getFunction(std::string Name) {
-    if (auto *F = TheModule)
-}
-
 //
 // optimization passes
 //
@@ -171,6 +187,90 @@ void InitializeModuleAndPassManager(void) {
     TheFPM->add(createCFGSimplificationPass());
 
     TheFPM->doInitialization();
+}
+
+static void HandleDefinition() {
+    if (auto FnAST = ParseDefinition()) {
+        if (auto *FnIR = FnAST->codegen()) {
+            fprintf(stderr, "Read function definition:");
+            FnIR->print(llvm::errs());
+            fprintf(stderr, "\n");
+
+            TheJIT->addModule(std::move(TheModule));
+            InitializeModuleAndPassManager();
+        }
+    } else {
+        // skip token for error recovery
+        getNextToken();
+    }
+}
+
+static void HandleExtern() {
+    if (auto ProtoAST = ParseExtern()) {
+        if (auto *FnIR = ProtoAST->codegen()) {
+            fprintf(stderr, "read extern: ");
+            FnIR->print(llvm::errs());
+            fprintf(stderr, "\n");
+
+            FunctionProtos[ProtoAST->getName()] = std::move(ProtoAST);
+        }
+    } else {
+        // skip token for error recovery
+        getNextToken();
+    }
+}
+
+static void HandleTopLevelExpression() {
+    if (auto FnAST = ParseTopLevelExpr()) {
+        if (auto *FnIR = FnAST->codegen()) {
+            /*
+            fprintf(stderr, "read top-level expresssion: ");
+            FnIR->print(llvm::errs());
+            fprintf(stderr, "\n");
+            */
+
+            // jit the module containing the anonymous expr, 
+            // keeping a handle to free it later
+            auto H = TheJIT->addModule(std::move(TheModule));
+            InitializeModuleAndPassManager();
+
+            // search the jit for __anon_expr symbol
+            auto ExprSymbol = TheJIT->findSymbol("__anon_expr");
+            assert(ExprSymbol && "function not found");
+
+            // get the symbol's address and cast it to the right type
+            double (*FP)() = (double (*)())(intptr_t)ExprSymbol.getAddress();
+            fprintf(stderr, "evaluated to %f\n", FP());
+
+            TheJIT->removeModule(H);
+        }
+    } else {
+        // skip token for error recovery
+        getNextToken();
+    }
+}
+
+// top ::= definition | external | expression | ';'
+static  void MainLoop() {
+    while (1) {
+        fprintf(stderr, "ready> ");
+        switch (CurTok) {
+        case tok_eof:
+            return;
+        case ';':
+            getNextToken();
+            break;
+        case tok_def:
+            HandleDefinition();
+            break;
+        case tok_extern:
+            HandleExtern();
+            break;
+        default:
+            HandleTopLevelExpression();
+            break;
+        }
+    }
 }
 
 #endif // codegen_h
