@@ -48,6 +48,8 @@ int main(int argc, char **argv) {
 //    TheModule = std::make_unique<llvm::Module>("my cool jit", TheContext);
     TheJIT = std::make_unique<KaleidoscopeJIT>();
 
+    InitializeModuleAndPassManager();
+
     // run the main interpreter
     MainLoop();
 
