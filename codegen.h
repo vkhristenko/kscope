@@ -32,7 +32,7 @@ static llvm::LLVMContext TheContext;
 static llvm::IRBuilder<> Builder(TheContext);
 static std::unique_ptr<llvm::Module> TheModule;
 static std::map<std::string, llvm::Value*> NamedValues;
-static std::unique_ptr<llvm::FunctionPassManager> TheFPM;
+static std::unique_ptr<llvm::legacy::FunctionPassManager> TheFPM;
 static std::unique_ptr<llvm::orc::KaleidoscopeJIT> TheJIT;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 
@@ -184,7 +184,7 @@ void InitializeModuleAndPassManager(void) {
     TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
 
     // create a new pass manager attached to it
-    TheFPM = std::make_unique<llvm::FunctionPassManager>(TheModule.get());
+    TheFPM = std::make_unique<llvm::legacy::FunctionPassManager>(TheModule.get());
 
     // simple "peephole" optimizations and bit-twiddling opts
     TheFPM->add(createInstructionCombiningPass());
@@ -251,7 +251,7 @@ static void HandleTopLevelExpression() {
             assert(ExprSymbol && "function not found");
 
             // get the symbol's address and cast it to the right type
-            double (*FP)() = (double (*)())(intptr_t)ExprSymbol.getAddress();
+            double (*FP)() = (double (*)())(intptr_t)cantFail(ExprSymbol.getAddress());
             fprintf(stderr, "evaluated to %f\n", FP());
 
             TheJIT->removeModule(H);
