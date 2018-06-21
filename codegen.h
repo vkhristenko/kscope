@@ -235,11 +235,10 @@ static void HandleExtern() {
 static void HandleTopLevelExpression() {
     if (auto FnAST = ParseTopLevelExpr()) {
         if (auto *FnIR = FnAST->codegen()) {
-            /*
+            
             fprintf(stderr, "read top-level expresssion: ");
             FnIR->print(llvm::errs());
             fprintf(stderr, "\n");
-            */
 
             // jit the module containing the anonymous expr, 
             // keeping a handle to free it later
