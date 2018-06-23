@@ -12,6 +12,7 @@
 
 // function declarations
 static std::unique_ptr<ExprAST> ParseExpression();
+static std::unique_ptr<ExprAST> ParseIfExpr();
 
 //
 // provide a simple token buffer
@@ -104,6 +105,8 @@ static std::unique_ptr<ExprAST> ParsePrimary() {
         return ParseNumberExpr();
     case '(':
         return ParseParenAST();
+    case tok_if:
+        return ParseIfExpr();
     }
 }
 
@@ -209,6 +212,7 @@ static std::unique_ptr<PrototypeAST> ParseExtern() {
     return ParsePrototype();
 }
 
+
 // toplevelexpr ::= expression
 static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
     if (auto E = ParseExpression()) {
@@ -219,6 +223,73 @@ static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
     }
 
     return nullptr;
+}
+
+// ifexpr ::= 'if' expression 'then' expression 'else' expression
+static std::unique_ptr<ExprAST> ParseIfExpr() {
+    getNextToken();
+
+    // condition
+    auto Cond = ParseExpression();
+    if (!Cond)
+        return nullptr;
+
+    if (CurTok != tok_then)
+        return LogError("expected then");
+    getNextToken();
+
+    auto Then = ParseExpression();
+    if (!Then)
+        return nullptr;
+
+    if (CurTok != tok_else)
+        return LogError("expected else");
+
+    getNextToken();
+
+    auto Else = ParseExpression();
+    if (!Else)
+        return nullptr;
+
+    return std::make_unique<IfExprAST>(std::move(Cond), std::move(Then), std::move(Else));
+}
+
+// forexpr ::= 'for' identifier '=' expr ',' expr (',' expr)? 'in' expression
+static std::unique_ptr<ExprAST> ParseForExpr() {
+    getNextToken();
+
+    if (CurTok != tok_identifier)
+        return LogError("expected identifier after for");
+
+    std::string IdName = IdentifierStr;
+    getNextToken();
+
+    if (CurTok != '=')
+        return LogError("expected '=' after for");
+    getNextToken();
+
+    auto Start = ParseExpression();
+    if (!Start)
+        return nullptr;
+    if (CurTok != ',')
+        return LogError("expected ',' after for start value");
+    getNextToken();
+    
+    auto End = ParseExpression();
+    if (!End)
+        return nullptr;
+
+    std::unique_ptr<ExprAST> Step;
+    if (CurTok == ',') {
+        getNextToken();
+        Step = ParseExpression();
+        if (!Step)
+            return nullptr;
+    }
+
+    if (CurTok)
+
+    if ()
 }
 
 #endif // parser_h
