@@ -49,6 +49,18 @@ public:
     llvm::Value *codegen() override;
 };
 
+class UnaryExprAST : public ExprAST {
+    char Opcode;
+    std::unique_ptr<ExprAST> Operand;
+
+public:
+    UnaryExprAST(char Opcode, std::unique_ptr<ExprAST> Operand)
+        : Opcode(Opcode), Operand(std::move(Operand)) 
+    {}
+
+    virtual llvm::Value *codegen() override;
+};
+
 class VariableExprAST : public ExprAST {
     std::string Name;
 
@@ -87,13 +99,26 @@ public:
 class PrototypeAST {
     std::string Name;
     std::vector<std::string> Args;
+    bool IsOperator;
+    unsigned Precedence;
 
 public:
-    PrototypeAST(std::string const& name, std::vector<std::string> Args)
-        : Name(name), Args(std::move(Args)) {}
+    PrototypeAST(std::string const& name, std::vector<std::string> Args,
+                 bool IsOperator=false, unsigned Prec = 0)
+        : Name(name), Args(std::move(Args)), IsOperator(IsOperator), Precedence(Prec) {}
 
     std::string const& getName() const { return Name;}
     llvm::Function *codegen();
+
+    bool isUnaryOp() const { return IsOperator and Args.size() == 1; }
+    bool isBinaryOp() const { return IsOperator and Args.size() == 2; }
+
+    char getOperatorName() const {
+        assert(isUnaryOp() or isBinaryOp());
+        return Name[Name.size() - 1];
+    }
+
+    unsigned getBinaryPrecedence() const { return Precedence; }
 };
 
 // this class represents a function definition itself

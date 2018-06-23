@@ -25,6 +25,8 @@
 
 #include "parser.h"
 
+llvm::Function *getFunction(std::string Name);
+
 using namespace llvm;
 using namespace llvm::orc;
 
@@ -132,6 +134,18 @@ llvm::Value *ForExprAST::codegen() {
     return Constant::getNullValue(Type::getDoubleTy(TheContext));
 }
 
+llvm::Value *UnaryExprAST::codegen() {
+    llvm::Value *OperandV = Operand->codegen();
+    if (!OperandV)
+        return nullptr;
+
+    llvm::Function *F = getFunction(std::string("unary") + Opcode);
+    if (!F)
+        return LogErrorV("unknown unary operator");
+
+    return Builder.CreateCall(F, OperandV, "unop");
+}
+
 llvm::Value *IfExprAST::codegen() {
     llvm::Value *CondV = Cond->codegen();
     if (!CondV)
@@ -203,8 +217,16 @@ llvm::Value *BinaryExprAST::codegen() {
         return Builder.CreateUIToFP(L, llvm::Type::getDoubleTy(TheContext),
                                     "booltmp");
     default:
-        return LogErrorV("invalid binary operator");
+        break;
     }
+
+    // if it was not a builtin binary operator, it must be a user defined one. 
+    // emit a call to it.
+    llvm::Function *F = getFunction(std::string("binary") + Op);
+    assert(F and "binary operator not found");
+
+    llvm::Value *Ops[2] = {L, R};
+    return Builder.CreateCall(F, Ops, "binop");
 }
 
 llvm::Function *getFunction(std::string Name) {
@@ -278,6 +300,10 @@ llvm::Function *FunctionAST::codegen() {
 
     if (!TheFunction->empty())
         return (llvm::Function*)LogErrorV("function can not be redefined.");
+
+    // if this is an opaertor, insatll it
+    if (P.isBinaryOp())
+        BinopPrecedence[P.getOperatorName()] = P.getBinaryPrecedence();
 
     // create a new basic block to start insertion into
     llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", TheFunction);
