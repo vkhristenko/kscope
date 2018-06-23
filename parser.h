@@ -13,6 +13,7 @@
 // function declarations
 static std::unique_ptr<ExprAST> ParseExpression();
 static std::unique_ptr<ExprAST> ParseIfExpr();
+static std::unique_ptr<ExprAST> ParseForExpr();
 
 //
 // provide a simple token buffer
@@ -107,6 +108,8 @@ static std::unique_ptr<ExprAST> ParsePrimary() {
         return ParseParenAST();
     case tok_if:
         return ParseIfExpr();
+    case tok_for:
+        return ParseForExpr();
     }
 }
 
@@ -287,9 +290,17 @@ static std::unique_ptr<ExprAST> ParseForExpr() {
             return nullptr;
     }
 
-    if (CurTok)
+    if (CurTok != tok_in)
+        return LogError("expected 'in' after for");
+    getNextToken();
 
-    if ()
+    auto Body = ParseExpression();
+    if (!Body)
+        return nullptr;
+
+    return std::make_unique<ForExprAST>(IdName, std::move(Start),
+                                        std::move(End), std::move(Step),
+                                        std::move(Body));
 }
 
 #endif // parser_h
