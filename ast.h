@@ -34,6 +34,19 @@ public:
     virtual llvm::Value *codegen() override;
 };
 
+class VarExprAST : public ExprAST {
+    std::vector<std::pair<std::string, std::unique_ptr<ExprAST>>> VarNames;
+    std::unique_ptr<ExprAST> Body;
+
+public:
+    VarExprAST(std::vector<std::pair<std::string, std::unique_ptr<ExprAST>>> VarNames,
+               std::unique_ptr<ExprAST> Body) 
+        : VarNames(std::move(VarNames)), Body(std::move(Body))
+    {}
+
+    virtual llvm::Value *codegen() override;
+};
+
 class ForExprAST : public ExprAST {
     std::string VarName;
     std::unique_ptr<ExprAST> Start, End, Step, Body;
@@ -67,6 +80,7 @@ class VariableExprAST : public ExprAST {
 public:
     VariableExprAST(std::string const& Name) : Name(Name) {}
     virtual llvm::Value *codegen();
+    const std::string &getName() const { return Name; }
 };
 
 class BinaryExprAST : public ExprAST {
