@@ -4,6 +4,7 @@
 #include "include/KaleidoscopeJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/Optional.h"
 
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -17,11 +18,22 @@
 #include "llvm/IR/Verifier.h"
 
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 
+#include <system_error>
+#include <utility>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
 
 #include "parser.h"
 
@@ -429,6 +441,7 @@ llvm::Function *FunctionAST::codegen() {
 void InitializeModuleAndPassManager(void) {
     // open a new module
     TheModule = std::make_unique<llvm::Module>("my cool jit", TheContext);
+#ifdef KINIT_JIT
     TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
 
     // create a new pass manager attached to itc
@@ -451,6 +464,7 @@ void InitializeModuleAndPassManager(void) {
     TheFPM->add(createCFGSimplificationPass());
 
     TheFPM->doInitialization();
+#endif
 }
 
 static void HandleDefinition() {
@@ -459,9 +473,12 @@ static void HandleDefinition() {
             fprintf(stderr, "Read function definition:");
             FnIR->print(llvm::errs());
             fprintf(stderr, "\n");
-
+#ifdef KINIT_JIT
             TheJIT->addModule(std::move(TheModule));
             InitializeModuleAndPassManager();
+#else
+            return;
+#endif
         }
     } else {
         // skip token for error recovery
@@ -487,7 +504,7 @@ static void HandleExtern() {
 static void HandleTopLevelExpression() {
     if (auto FnAST = ParseTopLevelExpr()) {
         if (auto *FnIR = FnAST->codegen()) {
-            
+#ifdef KINIT_JIT  
             fprintf(stderr, "read top-level expresssion: ");
             FnIR->print(llvm::errs());
             fprintf(stderr, "\n");
@@ -506,6 +523,9 @@ static void HandleTopLevelExpression() {
             fprintf(stderr, "evaluated to %f\n", FP());
 
             TheJIT->removeModule(H);
+#else
+            return;
+#endif
         }
     } else {
         // skip token for error recovery
