@@ -431,11 +431,12 @@ void InitializeModuleAndPassManager(void) {
     TheModule = std::make_unique<llvm::Module>("my cool jit", TheContext);
     TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
 
+    // create a new pass manager attached to itc
+    TheFPM = std::make_unique<llvm::legacy::FunctionPassManager>(TheModule.get());
+    
     // promote allocas to registers
     TheFPM->add(createPromoteMemoryToRegisterPass());
 
-    // create a new pass manager attached to itc
-    TheFPM = std::make_unique<llvm::legacy::FunctionPassManager>(TheModule.get());
 
     // simple "peephole" optimizations and bit-twiddling opts
     TheFPM->add(createInstructionCombiningPass());

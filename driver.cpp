@@ -29,6 +29,9 @@ int main(int argc, char **argv) {
     //
     // native stuff
     //
+#ifdef KINIT_DEBUG
+    std::cout << "initialize various native targets" << std::endl;
+#endif
     InitializeNativeTarget();
     InitializeNativeTargetAsmPrinter();
     InitializeNativeTargetAsmParser();
@@ -42,16 +45,28 @@ int main(int argc, char **argv) {
     BinopPrecedence['-'] = 30;
     BinopPrecedence['*'] = 40;
 
+#ifdef KINIT_DEBUG
+    std::cout << "setup the term and get the next token" << std::endl;
+#endif
     fprintf(stderr, "ready> ");
     getNextToken();
 
     // make the module, which holds all the code
 //    TheModule = std::make_unique<llvm::Module>("my cool jit", TheContext);
+#ifdef KINIT_DEBUG
+    std::cout << "initializing the jit" << std::endl;
+#endif
     TheJIT = std::make_unique<KaleidoscopeJIT>();
 
-    InitializeModuleAndPassManager();
+#ifdef KINIT_DEBUG
+    std::cout << "initialize module and pass manager" << std::endl;
+#endif
+    InitializeModuleAndPassManager(); 
 
     // run the main interpreter
+#ifdef KINIT_DEBUG
+    std::cout << "start main loop" << std::endl;
+#endif
     MainLoop();
 
     // dump the codegen stuff
